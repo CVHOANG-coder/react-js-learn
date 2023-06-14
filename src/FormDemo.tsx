@@ -1,24 +1,30 @@
 import {
     Box,
+    Button,
     Card,
     CardContent,
     Checkbox,
     CheckboxProps,
+    FilledTextFieldProps,
     FormControlLabel,
     FormGroup,
+    FormHelperText,
     MenuItem,
+    OutlinedTextFieldProps,
+    StandardTextFieldProps,
     TextField,
+    TextFieldProps,
     Typography,
 } from "@material-ui/core";
-import { Field, Form, Formik, useField } from "formik";
+import { ErrorMessage, Field, Form, Formik, useField } from "formik";
 import React from "react";
 import { InvestmentDetails } from "./InvestmentDetails";
-import { boolean, number, object, string } from "yup";
+import { array, boolean, mixed, number, object, string } from "yup";
 
 type Props = {};
 const initialValues: InvestmentDetails = {
     fullName: "",
-    initialInvestment: undefined,
+    initialInvestment: 0,
     investmentRisk: [],
     commentAboutInvestmentRisk: "",
     dependents: -1,
@@ -38,28 +44,55 @@ export default function FormDemo({}: Props) {
                         initialInvestment: number().required().min(100),
                         dependents: number().required().min(0).max(5),
                         acceptedTermsAndConditions: boolean().oneOf([true]),
+                        investmentRisk: array(
+                            string().oneOf(["High", "Medium", "Low"])
+                        ).min(1),
+                        commentAboutInvestmentRisk: mixed().when(
+                            "investmentRisk",
+                            {
+                                is: (investmentRisk: string[]) =>
+                                    investmentRisk.find((ir) => ir === "High"),
+                                then: () =>
+                                    string().required().min(20).max(100),
+                                otherwise: () => string().min(20).max(100),
+                            }
+                        ),
                     })}
                     initialValues={initialValues}
-                    onSubmit={() => {}}
+                    onSubmit={(values, formikHelpers) => {
+                        return new Promise((res: Function) => {
+                            setTimeout(() => {
+                                console.log(values);
+                                console.log(formikHelpers);
+                                res();
+                            }, 5000);
+                        });
+                    }}
                 >
-                    {({ values, errors }) => (
+                    {({
+                        values,
+                        errors,
+                        isSubmitting,
+                        isValidating,
+                        touched,
+                    }) => (
                         <Form>
                             <Box marginBottom={2}>
                                 <FormGroup>
-                                    <Field
+                                    <MyTextField
                                         name="fullName"
-                                        as={TextField}
                                         label="Full name"
+                                        helperText={errors.fullName}
                                     />
                                 </FormGroup>
                             </Box>
                             <Box marginBottom={2}>
                                 <FormGroup>
-                                    <Field
+                                    <MyTextField
                                         name="initialInvestment"
                                         type="number"
-                                        as={TextField}
                                         label="Initial investment"
+                                        helperText={errors.initialInvestment}
                                     />
                                 </FormGroup>
                             </Box>
@@ -81,16 +114,26 @@ export default function FormDemo({}: Props) {
                                         label="Low-Safe"
                                     />
                                 </FormGroup>
+                                {errors.investmentRisk &&
+                                touched.investmentRisk ? (
+                                    <FormHelperText>
+                                        {errors.investmentRisk}
+                                    </FormHelperText>
+                                ) : null}
                             </Box>
                             <Box marginBottom={2}>
                                 <FormGroup>
-                                    <Field
+                                    <MyTextField
                                         name="commentAboutInvestmentRisk"
-                                        as={TextField}
                                         multiline
                                         rows={3}
                                         rowsMax={10}
+                                        label="commentAboutInvestmentRisk"
+                                        helperText={
+                                            errors.commentAboutInvestmentRisk
+                                        }
                                     />
+                                    <ErrorMessage name="commentAboutInvestmentRisk" />
                                 </FormGroup>
                             </Box>
                             <Box marginBottom={2}>
@@ -99,7 +142,11 @@ export default function FormDemo({}: Props) {
                                         name="dependents"
                                         as={TextField}
                                         select
+                                        label="dependents"
                                     >
+                                        <MenuItem value={-1}>
+                                            Select ...
+                                        </MenuItem>
                                         <MenuItem value={3}>3</MenuItem>
                                         <MenuItem value={2}>2</MenuItem>
                                         <MenuItem value={0}>0</MenuItem>
@@ -107,17 +154,24 @@ export default function FormDemo({}: Props) {
                                         <MenuItem value={5}>5</MenuItem>
                                         <MenuItem value={1}>1</MenuItem>
                                     </Field>
+                                    <ErrorMessage name="dependents" />
                                 </FormGroup>
                             </Box>
                             <Box marginBottom={2}>
                                 <FormGroup>
                                     <MyCheckbox
                                         name="acceptedTermsAndConditions"
-                                        value="High"
                                         label="Accept terms and conditions"
                                     />
+                                    <ErrorMessage name="acceptedTermsAndConditions" />
                                 </FormGroup>
                             </Box>
+                            <Button
+                                type="submit"
+                                disabled={isSubmitting || isValidating}
+                            >
+                                Submit
+                            </Button>
                             <pre>{JSON.stringify(errors, null, 4)}</pre>
                             <pre>{JSON.stringify(values, null, 4)}</pre>
                         </Form>
@@ -143,6 +197,34 @@ export function MyCheckbox(props: MyCheckboxProps) {
         <FormControlLabel
             control={<Checkbox {...props} {...field} />}
             label={props.label}
+        />
+    );
+}
+export type MyTextFieldProps = (
+    | StandardTextFieldProps
+    | FilledTextFieldProps
+    | OutlinedTextFieldProps
+) & {
+    name: string;
+    value?: string | number;
+    label?: string;
+    helperText?: string;
+};
+export function MyTextField(props: MyTextFieldProps) {
+    const [field, meta] = useField({
+        name: props.name,
+        type: "textField",
+        value: props.value,
+    });
+    return (
+        <Field
+            as={TextField}
+            label={props.label}
+            {...field}
+            {...props}
+            error={meta.touched && meta.error}
+            helperText={props.helperText}
+            variant="standard"
         />
     );
 }
